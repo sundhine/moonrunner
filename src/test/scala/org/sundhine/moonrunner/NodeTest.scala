@@ -2,11 +2,10 @@ package moonrunner
 
 import org.scalatest.FlatSpec
 import org.sundhine.moonrunner.mazerunner._
-import monocle.macros.syntax.lens._
 
 class NodeTest extends FlatSpec {
 
-  val state = State(Stats(12,24,12), adventureSheet = AdventureSheet())
+  val state = State(Stats(12,24,12), adventureSheet = Set.empty)
 
   behavior of "maze solver"
 
@@ -73,15 +72,15 @@ class NodeTest extends FlatSpec {
   it should "correctly update state when the update function is called and expose the correct nodes" in {
     val node = updateWithChoiceNode(lugoshPriestgate, 1,2,3)
 
-    assert(!state.adventureSheet.lugosh)
+    assert(!state.adventureSheet(Lugosh))
     val updatedState = node.update(state)
 
-    assert(updatedState.adventureSheet.lugosh)
+    assert(updatedState.adventureSheet(Lugosh))
     assert(node.choices(state) == List(1,2,3))
   }
 
   it should "offer certain choices based on status" in {
-    val node = optionalChoice(st => if (st.adventureSheet.lugosh) List(1) else List(2))
+    val node = optionalChoice(st => if (st.adventureSheet(Lugosh)) List(1) else List(2))
 
     assert(node.choices(state) == List(2))
 

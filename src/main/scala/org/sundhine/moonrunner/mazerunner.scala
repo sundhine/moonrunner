@@ -1,4 +1,5 @@
 package org.sundhine.moonrunner
+
 import monocle.macros.syntax.lens._
 
 object mazerunner {
@@ -17,17 +18,19 @@ object mazerunner {
       luck = r.nextInt(6) + 7)
   }
 
-  case class AdventureSheet(
-                           lugosh : Boolean = false
-                           )
+  type AdventureSheet = Set[AdventureSheetWords]
 
 
   case class State(stats: Stats, adventureSheet: AdventureSheet)
 
-  def newState: State = State(stats = generateStats, adventureSheet = AdventureSheet())
+  def newState: State = State(stats = generateStats, adventureSheet = Set.empty)
 
   //Write on adventure sheet
-  def lugoshPriestgate(state: State): State = state.lens(_.adventureSheet.lugosh).modify(_ => true)
+  trait AdventureSheetWords
+
+  case object Lugosh extends AdventureSheetWords
+
+  def lugoshPriestgate(state: State): State = state.lens(_.adventureSheet).modify(s => s + Lugosh)
 
 
   sealed trait BaseNode
@@ -53,7 +56,7 @@ object mazerunner {
     override def choices(state: State): Choices = nodes.toList
   }
 
-  def optionalChoice(choiceFn: State => Choices):StoryNode = new StoryNode {
+  def optionalChoice(choiceFn: State => Choices): StoryNode = new StoryNode {
     override def update(state: State): State = state
 
     override def choices(state: State): Choices = choiceFn(state)
@@ -68,14 +71,14 @@ object mazerunner {
   def victoryNode: BaseNode = VictoryNode
 
   case class Result(state: State, path: Path) {
-    import sext._
+
     override def toString: String = {
-      s"Final State: ${state.valueTreeString}\nFinal Path: ${path.mkString("[",",","]")}"
+      s"Final State: ${pprint.apply(state)}\nFinal Path: ${path.mkString("[", ",", "]")}"
     }
   }
 
 
-  private def iSolveMaze(maze: Maze, state: State, page: Page, path: Path, visited: Set[Page]): Option[Result] = {
+  private def iSolveMaze(maze: Maze, state: State, page: Page, path: Path, visited: Set[Page]): Option[Result] =
     if (visited.contains(page)) None
     else maze(page) match {
       case VictoryNode => Some(Result(state, (page :: path).reverse))
@@ -87,7 +90,7 @@ object mazerunner {
           .flatMap(nextPage => iSolveMaze(maze, newState, nextPage, page :: path, visited + page))
           .headOption
     }
-  }
+
 
   def solveMaze(maze: Maze, state: State): Option[Result] = iSolveMaze(maze, state, 1, Nil, Set.empty)
 
@@ -223,7 +226,7 @@ object maze {
     122 -> failureNode,
     123 -> choiceNode(386, 141, 17),
     //Lugosh is done, not the windmill
-    124 -> optionalChoice(st => List(393, 23, 206) ++ (if (st.adventureSheet.lugosh) List(64) else Nil)),
+    124 -> optionalChoice(st => List(393, 23, 206) ++ (if (st.adventureSheet(Lugosh)) List(64) else Nil)),
     125 -> choiceNode(35, 251, 277),
     126 -> choiceNode(200, 282),
     127 -> choiceNode(200),
