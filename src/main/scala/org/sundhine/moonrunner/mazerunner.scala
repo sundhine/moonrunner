@@ -18,20 +18,67 @@ object mazerunner {
       luck = r.nextInt(6) + 7)
   }
 
-  type AdventureSheet = Set[AdventureSheetWords]
+  def generateSkills: Skills = Set(Disguise, Acrobatics)
+
+  def generateInventory: Inventory = Set.empty
+
+  type AdventureSheet = Set[AdventureSheetWord]
+
+  type Skills = Set[Skill]
+
+  type Inventory = Set[Item]
 
 
-  case class State(stats: Stats, adventureSheet: AdventureSheet)
+  case class State(stats: Stats,
+                   adventureSheet: AdventureSheet,
+                   inventory: Inventory,
+                   skills: Skills)
 
-  def newState: State = State(stats = generateStats, adventureSheet = Set.empty)
+  def newState: State = State(
+    stats = generateStats,
+    adventureSheet = Set.empty,
+    inventory = generateInventory,
+    skills = generateSkills)
 
   //Write on adventure sheet
-  trait AdventureSheetWords
+  sealed trait AdventureSheetWord
 
-  case object Lugosh extends AdventureSheetWords
+  case object Lugosh extends AdventureSheetWord
 
-  def lugoshPriestgate(state: State): State = state.lens(_.adventureSheet).modify(s => s + Lugosh)
+  case object DisguisedAsWarden extends AdventureSheetWord
 
+  case object ReleasedPrisoners extends AdventureSheetWord
+
+  case object Darnoc extends AdventureSheetWord
+
+  case object Kehsil extends AdventureSheetWord
+
+  case object Retsam extends AdventureSheetWord
+
+  case object Rotkod extends AdventureSheetWord
+
+  //Items
+  sealed trait Item
+
+  case object LetterOfIntroduction extends Item
+
+  case object Locket extends Item
+
+  //Skills
+  sealed trait Skill
+
+  case object Disguise extends Skill
+
+  case object Combat extends Skill
+
+  case object Acrobatics extends Skill
+
+
+  def addItem(item: Item)(state: State): State = state.lens(_.inventory).modify(s => s + item)
+
+  def addToSheet(adventureSheetWord: AdventureSheetWord)(state: State): State = state.lens(_.adventureSheet).modify(s => s + adventureSheetWord)
+
+  def removeFromSheet(adventureSheetWord: AdventureSheetWord)(state: State): State = state.lens(_.adventureSheet).modify(s => s - adventureSheetWord)
 
   sealed trait BaseNode
 
@@ -50,8 +97,8 @@ object mazerunner {
     override def choices(state: State): Choices = nodes.toList
   }
 
-  def updateWithChoiceNode(updateFn: (State) => State, nodes: Page*): StoryNode = new StoryNode {
-    override def update(state: State): State = updateFn(state)
+  def updateWithChoiceNode(updateFns: ((State) => State)*)(nodes: Page*): StoryNode = new StoryNode {
+    override def update(state: State): State = updateFns.foldLeft(state)((st, fn) => fn(st))
 
     override def choices(state: State): Choices = nodes.toList
   }
@@ -78,7 +125,7 @@ object mazerunner {
   }
 
 
-  private def iSolveMaze(maze: Maze, state: State, page: Page, path: Path, visited: Set[Page]): Option[Result] =
+  private def iSolveMaze(maze: Maze, state: State, page: Page, path: Path, visited: Set[Page]): Option[Result] = {
     if (visited.contains(page)) None
     else maze(page) match {
       case VictoryNode => Some(Result(state, (page :: path).reverse))
@@ -90,6 +137,7 @@ object mazerunner {
           .flatMap(nextPage => iSolveMaze(maze, newState, nextPage, page :: path, visited + page))
           .headOption
     }
+  }
 
 
   def solveMaze(maze: Maze, state: State): Option[Result] = iSolveMaze(maze, state, 1, Nil, Set.empty)
@@ -113,13 +161,13 @@ object maze {
     9 -> choiceNode(398, 46),
     10 -> choiceNode(341, 130, 200),
     11 -> choiceNode(85, 200),
-    12 -> updateWithChoiceNode(lugoshPriestgate, 149, 80),
+    12 -> updateWithChoiceNode(addToSheet(Lugosh))(149, 80),
     13 -> choiceNode(387, 70, 361),
     14 -> choiceNode(37),
     15 -> choiceNode(138, 182),
     16 -> choiceNode(350, 165, 308),
     17 -> choiceNode(45, 368),
-    18 -> choiceNode(220, 275, 287, 117, 58),
+    18 -> updateWithChoiceNode(addToSheet(DisguisedAsWarden))(220, 275, 287, 117, 58),
     19 -> choiceNode(164, 215, 280),
     20 -> failureNode,
     21 -> choiceNode(397, 48, 158, 286),
@@ -158,7 +206,12 @@ object maze {
     54 -> choiceNode(369),
     55 -> choiceNode(319, 12, 80),
     56 -> choiceNode(141, 17),
-    57 -> choiceNode(399, 343, 8),
+    57 -> optionalChoice(st =>
+      st.adventureSheet.intersect(Set(Darnoc, Kehsil, Retsam, Rotkod)).size match {
+        case n if n == 0 => List(399)
+        case n if n == 1 || n == 2 => List(343)
+        case _ => List(8)
+      }),
     58 -> choiceNode(318, 348),
     59 -> choiceNode(103, 153),
     60 -> choiceNode(143, 20),
@@ -226,7 +279,7 @@ object maze {
     122 -> failureNode,
     123 -> choiceNode(386, 141, 17),
     //Lugosh is done, not the windmill
-    124 -> optionalChoice(st => List(393, 23, 206) ++ (if (st.adventureSheet(Lugosh)) List(64) else Nil)),
+    124 -> optionalChoice(st => List(393, 23, 207) ++ (if (st.adventureSheet(Lugosh)) List(64) else Nil)),
     125 -> choiceNode(35, 251, 277),
     126 -> choiceNode(200, 282),
     127 -> choiceNode(200),
@@ -274,7 +327,9 @@ object maze {
     169 -> choiceNode(388, 99),
     170 -> choiceNode(97),
     171 -> choiceNode(79, 216),
-    172 -> choiceNode(183, 302),
+    172 -> optionalChoice(st =>
+      if (st.adventureSheet(ReleasedPrisoners)) List(183)
+      else List(302)),
     173 -> choiceNode(307, 331),
     174 -> choiceNode(374, 28),
     175 -> choiceNode(94, 3, 383),
@@ -285,7 +340,7 @@ object maze {
     180 -> choiceNode(363, 309),
     181 -> choiceNode(369),
     182 -> failureNode,
-    183 -> choiceNode(57, 207),
+    183 -> updateWithChoiceNode(addToSheet(Rotkod), removeFromSheet(DisguisedAsWarden))(57, 207),
     184 -> choiceNode(353, 9),
     185 -> failureNode,
     186 -> choiceNode(200),
@@ -305,7 +360,7 @@ object maze {
     200 -> choiceNode(340, 61, 334, 10, 385, 245, 75),
     201 -> choiceNode(16),
     202 -> choiceNode(98, 113),
-    203 -> choiceNode(275, 287, 117, 58),
+    203 -> updateWithChoiceNode(addItem(Locket), addToSheet(ReleasedPrisoners))(275, 287, 117, 58),
     204 -> choiceNode(26, 14, 148),
     205 -> choiceNode(44),
     206 -> choiceNode(191, 296),
@@ -322,7 +377,9 @@ object maze {
     217 -> choiceNode(188, 300),
     218 -> choiceNode(108, 384),
     219 -> choiceNode(19),
-    220 -> choiceNode(203, 264),
+    220 -> optionalChoice(state =>
+      if (state.adventureSheet(DisguisedAsWarden)) List(203)
+      else List(264)),
     221 -> choiceNode(200),
     222 -> choiceNode(81, 294, 127),
     223 -> choiceNode(124),
@@ -477,7 +534,7 @@ object maze {
     372 -> failureNode,
     373 -> failureNode,
     374 -> choiceNode(85, 200),
-    375 -> choiceNode(119, 185),
+    375 -> optionalChoice(state => if (state.skills(Combat) || state.skills(Acrobatics)) List(119) else List(119, 185)),
     376 -> choiceNode(313, 96, 362),
     377 -> choiceNode(41, 292, 393, 23, 207),
     378 -> choiceNode(73, 144),
@@ -495,14 +552,18 @@ object maze {
     390 -> choiceNode(72, 11, 174),
     391 -> choiceNode(140, 170),
     392 -> choiceNode(126),
-    393 -> choiceNode(232, 382, 332),
+    393 -> optionalChoice(state =>
+      if (state.inventory(LetterOfIntroduction)) List(232)
+      else if (state.skills(Disguise)) List(382)
+      else List(332)
+    ),
     394 -> choiceNode(316, 355),
     395 -> choiceNode(263, 371, 204),
     396 -> choiceNode(266, 137, 163),
     397 -> choiceNode(381, 21, 48, 158, 286),
     398 -> choiceNode(87),
     399 -> choiceNode(387, 361, 70),
-    400 -> choiceNode(114),
+    400 -> choiceNode(114)
   )
 
   def main(args: Array[String]): Unit = {

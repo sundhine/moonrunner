@@ -12,3 +12,5 @@ libraryDependencies ++= Seq("org.scalatest" %% "scalatest" % "3.0.1" % "test",
   "com.lihaoyi" %% "pprint" % "0.5.2")
 
 scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature", "-Xfatal-warnings")
+
+fork in run := true

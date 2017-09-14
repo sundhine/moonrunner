@@ -5,7 +5,11 @@ import org.sundhine.moonrunner.mazerunner._
 
 class NodeTest extends FlatSpec {
 
-  val state = State(Stats(12,24,12), adventureSheet = Set.empty)
+  val state = State(
+    stats = Stats(12,24,12),
+    adventureSheet = Set.empty,
+    inventory = Set.empty,
+    skills = Set.empty)
 
   behavior of "maze solver"
 
@@ -70,7 +74,7 @@ class NodeTest extends FlatSpec {
   behavior of "more complex story nodes"
 
   it should "correctly update state when the update function is called and expose the correct nodes" in {
-    val node = updateWithChoiceNode(lugoshPriestgate, 1,2,3)
+    val node = updateWithChoiceNode(addToSheet(Lugosh))(1,2,3)
 
     assert(!state.adventureSheet(Lugosh))
     val updatedState = node.update(state)
@@ -84,7 +88,7 @@ class NodeTest extends FlatSpec {
 
     assert(node.choices(state) == List(2))
 
-    assert(node.choices(lugoshPriestgate(state)) == List(1))
+    assert(node.choices(addToSheet(Lugosh)(state)) == List(1))
   }
 
 }
